@@ -61,7 +61,6 @@ See [.env.example](.env.example). Never commit `.env`.
 | Variable | Purpose |
 |---|---|
 | `DATABASE_URL` | `postgresql://user:pass@<postgres-container>:5432/chartdb` |
-| `POSTGRES_NETWORK` | Docker network of the existing Postgres container |
 | `SESSION_SECRET` | Required in production (`openssl rand -hex 32`) |
 | `FRONTEND_URL` | Exact browser origin(s), comma separated, no trailing slash |
 | `COOKIE_SECURE` | `true` behind HTTPS; `false` only for plain-HTTP testing |
@@ -80,8 +79,9 @@ See [.env.example](.env.example). Never commit `.env`.
    docker inspect <postgres-container> --format '{{json .NetworkSettings.Networks}}'
    ```
 
-   Use the container name as the host in `DATABASE_URL` (not `localhost`), and the
-   network name as `POSTGRES_NETWORK`.
+   Use the Postgres host's IP (or container name, if the API shares its Docker
+   network) in `DATABASE_URL`, never `localhost`. If you share a network, add it
+   under `networks:` in `docker-compose.yml`.
 
 2. **Create the empty database and a dedicated user** (once). The API creates
    all tables itself.
@@ -171,7 +171,7 @@ Passwords: 10–128 chars with a letter and a number.
 ## Troubleshooting
 
 - **API can't reach Postgres** (`ENOTFOUND`/`ECONNREFUSED`): `DATABASE_URL` host must
-  be the Postgres container name, and `POSTGRES_NETWORK` must be its network.
+  be reachable from the API container (IP, or container name on a shared network).
   `docker logs chartdb-api`.
 - **Logged in but immediately logged out over HTTP**: `COOKIE_SECURE=true` cookies are
   dropped on plain HTTP; use HTTPS or set `COOKIE_SECURE=false` for testing.

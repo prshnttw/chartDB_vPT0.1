@@ -33,13 +33,5 @@ services:
       ALLOWED_EMAIL_DOMAINS: ${ALLOWED_EMAIL_DOMAINS:-cbr-iisc.ac.in}
       ALLOW_SIGNUP: ${ALLOW_SIGNUP:-true}
       TRUST_PROXY: ${TRUST_PROXY:-2} # Caddy -> nginx -> api = 2 hops. Use 1 if browsers hit nginx directly.
-    networks:
-      - default
-      - postgres_net
     restart: unless-stopped
 
-networks:
-  # The network your existing Postgres container is already on.
-  postgres_net:
-    external: true
-    name: ${POSTGRES_NETWORK:?set POSTGRES_NETWORK in .env}
