@@ -30,6 +30,10 @@ export default defineConfig({
             '@': path.resolve(__dirname, './src'),
         },
     },
+    server: {
+        // Dev: forward API calls to the Express backend (same-origin cookies).
+        proxy: { '/api': 'http://localhost:3001' },
+    },
     build: {
         rollupOptions: {
             external: (id) => /__test__/.test(id),

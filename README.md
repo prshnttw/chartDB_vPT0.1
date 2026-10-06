@@ -1,171 +1,184 @@
-<h1 align="center">
-  <a href="https://chartdb.io#gh-light-mode-only">
-    <img src="https://github.com/chartdb/chartdb/blob/main/src/assets/logo-light.png" width="400" height="70" alt="ChartDB">
-  </a>
-  <a href="https://chartdb.io##gh-dark-mode-only">
-    <img src="https://github.com/chartdb/chartdb/blob/main/src/assets/logo-dark.png" width="400" height="70" alt="ChartDB">
-  </a>
-  <br>
-</h1>
+# ChartDB vPT0.1
 
-<p align="center">
-  <b>Open-source database diagrams editor</b> <br />
-  <b>No installations • No Database password required.</b> <br />
-</p>
+A self-hosted, multi-user build of [ChartDB](https://github.com/chartdb/chartdb)
+with signup/login, PostgreSQL-backed accounts and per-user saved diagrams.
+The ChartDB editor itself is unchanged; this fork wraps it with an auth + API
+layer. ChartDB is AGPL-3.0 (see [LICENSE](LICENSE)); keep this repository public
+if you serve it to others.
 
-<h3 align="center">
-  <a href="https://discord.gg/QeFwyWSKwC">Community</a>  &bull;
-  <a href="https://www.chartdb.io?ref=github_readme">Website</a>  &bull;
-  <a href="https://chartdb.io/templates?ref=github_readme">Examples</a>  &bull;
-  <a href="https://app.chartdb.io?ref=github_readme">Demo</a>
-</h3>
+```
+Browser ──► Caddy (HTTPS) ──► chartdb (nginx + React UI) ──/api──► chartdb-api (Express)
+                                                                        │
+                                                          existing PostgreSQL container
+                                                          database "chartdb": users, sessions, diagrams
+```
 
-<h4 align="center">
-  <a href="https://github.com/chartdb/chartdb?tab=AGPL-3.0-1-ov-file#readme">
-    <img src="https://img.shields.io/github/license/chartdb/chartdb?color=blue" alt="ChartDB is released under the AGPL license." />
-  </a>
-  <a href="https://github.com/chartdb/chartdb/blob/main/CONTRIBUTING.md">
-    <img src="https://img.shields.io/badge/PRs-Welcome-brightgreen" alt="PRs welcome!" />
-  </a>
-  <a href="https://discord.gg/QeFwyWSKwC">
-    <img src="https://img.shields.io/discord/1277047413705670678?color=5865F2&label=Discord&logo=discord&logoColor=white" alt="Discord community channel" />
-  </a>
-  <a href="https://x.com/intent/follow?screen_name=jonathanfishner">
-    <img src="https://img.shields.io/twitter/follow/jonathanfishner?style=social"/>
-  </a>
+## What was added
 
-</h4>
+| Area | Where |
+|---|---|
+| Backend (Express + TypeScript) | [server/](server/) |
+| SQL migrations (run automatically on API start) | [server/migrations/](server/migrations/) |
+| Auth UI (`/login`, `/signup`), route guard, user menu | `src/pages/auth-page/`, `src/context/auth-context/` |
+| Diagram sync (IndexedDB working copy ⇄ PostgreSQL) | `src/context/diagram-sync-context/` |
+| Removed: Discord/Twitter/GitHub-star links, "star us" popup | editor sidebar, menus, navbars |
 
----
+## How it works
 
-<p align="center">
-  <img width='700px' src="./public/chartdb.png">
-</p>
+**Authentication.** Passwords are hashed with Argon2id. Login creates a random
+session token, sent as an `HttpOnly`, `SameSite=Lax` cookie (`Secure` in
+production); only its SHA-256 is stored in `sessions`. Nothing is kept in
+`localStorage`. Logout deletes the session row and clears the cookie. Expired
+sessions are purged hourly. Signup and login are rate limited, login returns the
+same generic error for unknown email and wrong password, and state-changing
+requests are rejected unless the `Origin` is one of `FRONTEND_URL` (CSRF defence
+in addition to `SameSite`).
 
-### 🎉 ChartDB
+**Signup policy.** Only emails on `ALLOWED_EMAIL_DOMAINS` (default
+`cbr-iisc.ac.in`) may sign up: the domain must equal it or be a subdomain
+(`a@cbr-iisc.ac.in`, `a@lab.cbr-iisc.ac.in`). Set `ALLOW_SIGNUP=false` to close
+signup entirely.
 
-ChartDB is a powerful, web-based database diagramming editor.
-Instantly visualize your database schema with a single **"Smart Query."** Customize diagrams, export SQL scripts, and access all features—no account required. Experience seamless database design here.
+**Diagrams.** ChartDB keeps working against IndexedDB (fast, offline-tolerant).
+A sync layer pushes the whole diagram as one JSONB document to
+`PUT /api/diagrams/:id` ~1 s after edits (click the cloud icon in the top bar to
+save immediately) and, when the editor opens, pulls anything newer from the
+server. Each account gets its own IndexedDB (`ChartDB-<userId>`), so users
+sharing a browser never see each other's cache. Conflicts are last-write-wins by
+`updatedAt`; the server refuses to overwrite a newer copy with an older one.
+Every diagram query is scoped by the session's `user_id`; a diagram that is not
+yours returns `404`.
 
-**What it does**:
+**Known limitations (v0.1).** Diagrams already stored in a browser under the old
+unauthenticated ChartDB are not auto-imported (export them via *File → Export*
+and re-import them after logging in). If you delete a diagram while offline, it
+reappears on the next sync. No password reset, profile page or admin UI yet.
 
-- **Instant Schema Import**
-  Run a single query to instantly retrieve your database schema as JSON. This makes it incredibly fast to visualize your database schema, whether for documentation, team discussions, or simply understanding your data better.
+## Environment variables
 
-- **AI-Powered Export for Easy Migration**
-  Our AI-driven export feature allows you to generate the DDL script in the dialect of your choice. Whether you're migrating from MySQL to PostgreSQL or from SQLite to MariaDB, ChartDB simplifies the process by providing the necessary scripts tailored to your target database.
-- **Interactive Editing**
-  Fine-tune your database schema using our intuitive editor. Easily make adjustments or annotations to better visualize complex structures.
+See [.env.example](.env.example). Never commit `.env`.
 
-### Status
+| Variable | Purpose |
+|---|---|
+| `DATABASE_URL` | `postgresql://user:pass@<postgres-container>:5432/chartdb` |
+| `POSTGRES_NETWORK` | Docker network of the existing Postgres container |
+| `SESSION_SECRET` | Required in production (`openssl rand -hex 32`) |
+| `FRONTEND_URL` | Exact browser origin(s), comma separated, no trailing slash |
+| `COOKIE_SECURE` | `true` behind HTTPS; `false` only for plain-HTTP testing |
+| `ALLOWED_EMAIL_DOMAINS` | Default `cbr-iisc.ac.in` |
+| `ALLOW_SIGNUP` | `false` to disable signup |
+| `TRUST_PROXY` | Proxy hops in front of the API (`2` with Caddy → nginx → api) |
+| `WEB_PORT` | Host port for the UI (default `8080`) |
+| `DISABLE_ANALYTICS` | Kept `true`; no analytics are added |
 
-ChartDB is currently in Public Beta. Star and watch this repository to get notified of updates.
+## Deploy with Docker (existing PostgreSQL)
 
-### Supported Databases
+1. **Find your Postgres container's network and name**
 
-- ✅ PostgreSQL (<img src="./src/assets/postgresql_logo_2.png" width="15"/> + <img src="./src/assets/supabase.png" alt="Supabase" width="15"/> + <img src="./src/assets/timescale.png" alt="Timescale" width="15"/> )
-- ✅ MySQL
-- ✅ SQL Server
-- ✅ MariaDB
-- ✅ SQLite (<img src="./src/assets/sqlite_logo_2.png" width="15"/> + <img src="./src/assets/cloudflare_d1.png" alt="Cloudflare D1" width="15"/> Cloudflare D1)
-- ✅ CockroachDB
-- ✅ ClickHouse
+   ```bash
+   docker ps
+   docker inspect <postgres-container> --format '{{json .NetworkSettings.Networks}}'
+   ```
 
-## Getting Started
+   Use the container name as the host in `DATABASE_URL` (not `localhost`), and the
+   network name as `POSTGRES_NETWORK`.
 
-Use the [cloud version](https://app.chartdb.io?ref=github_readme_2) or deploy locally:
+2. **Create the empty database and a dedicated user** (once). The API creates
+   all tables itself.
 
-### How To Use
+   ```bash
+   docker exec -it <postgres-container> psql -U postgres
+   ```
+   ```sql
+   CREATE USER chartdb_user WITH PASSWORD 'a-long-random-password';
+   CREATE DATABASE chartdb OWNER chartdb_user;
+   ```
+
+3. **Configure and start**
+
+   ```bash
+   git clone <your-repo-url> chartdb && cd chartdb
+   cp .env.example .env        # edit it
+   docker compose up -d --build
+   ```
+
+   The API applies the migrations on startup (log line `Applied migrations:
+   001_init.sql`). Open `http://<vm-ip>:8080` (set `COOKIE_SECURE=false` and
+   `FRONTEND_URL=http://<vm-ip>:8080` while testing without HTTPS).
+
+PostgreSQL is never exposed by this stack; only the API container talks to it.
+
+## Production: Caddy + HTTPS
+
+Point your domain at the VM, set `FRONTEND_URL=https://chartdb.example.com`,
+`COOKIE_SECURE=true`, then:
+
+```caddyfile
+chartdb.example.com {
+    # Simplest: everything to the UI container (nginx forwards /api to the API)
+    reverse_proxy chartdb:80
+}
+```
+
+or route directly (then set `TRUST_PROXY=1`):
+
+```caddyfile
+chartdb.example.com {
+    handle /api/* {
+        reverse_proxy chartdb-api:3001
+    }
+    handle {
+        reverse_proxy chartdb:80
+    }
+}
+```
+
+Caddy must share a Docker network with these containers (or use
+`localhost:<WEB_PORT>`). It sets `X-Forwarded-For`/`-Proto`, which the API honours
+via `TRUST_PROXY`.
+
+## Local development
 
 ```bash
+# 1. Backend (needs a reachable PostgreSQL with an empty "chartdb" database)
+cd server && npm install
+export DATABASE_URL=postgresql://user:pass@localhost:5432/chartdb
+export FRONTEND_URL=http://localhost:5173
+npm run dev            # http://localhost:3001, migrations run on start
+npm run migrate        # run migrations only
+npm test               # backend tests (in-memory Postgres, no DB needed)
+
+# 2. Frontend (new terminal, repo root)
 npm install
-npm run dev
+npm run dev            # http://localhost:5173, /api is proxied to :3001
+npm run test:ci        # frontend tests
 ```
 
-### Build
+## API
 
-```bash
-npm install
-npm run build
-```
+| Method | Path | |
+|---|---|---|
+| POST | `/api/auth/signup` `{name,email,password}` | 201 + cookie |
+| POST | `/api/auth/login` `{email,password}` | 200 + cookie |
+| POST | `/api/auth/logout` | clears session |
+| GET | `/api/auth/me` | `401` if not logged in |
+| GET/POST | `/api/diagrams` | list / create |
+| GET/PUT/DELETE | `/api/diagrams/:id` | own diagrams only |
 
-Or like this if you want to have AI capabilities:
+Errors are `{ "error": { "code", "message" } }` with 400/401/403/404/409/422/429/500.
+Passwords: 10–128 chars with a letter and a number.
 
-```bash
-npm install
-VITE_OPENAI_API_KEY=<YOUR_OPEN_AI_KEY> npm run build
-```
+## Troubleshooting
 
-### Run the Docker Container
-
-```bash
-docker run -e OPENAI_API_KEY=<YOUR_OPEN_AI_KEY> -p 8080:80 ghcr.io/chartdb/chartdb:latest
-```
-
-#### Build and Run locally
-
-```bash
-docker build -t chartdb .
-docker run -e OPENAI_API_KEY=<YOUR_OPEN_AI_KEY> -p 8080:80 chartdb
-```
-
-#### Using Custom Inference Server
-
-```bash
-# Build
-docker build \
-  --build-arg VITE_OPENAI_API_ENDPOINT=<YOUR_ENDPOINT> \
-  --build-arg VITE_LLM_MODEL_NAME=<YOUR_MODEL_NAME> \
-  -t chartdb .
-
-# Run
-docker run \
-  -e OPENAI_API_ENDPOINT=<YOUR_ENDPOINT> \
-  -e LLM_MODEL_NAME=<YOUR_MODEL_NAME> \
-  -p 8080:80 chartdb
-```
-
-> **Privacy Note:** ChartDB includes privacy-focused analytics via Fathom Analytics. You can disable this by adding `-e DISABLE_ANALYTICS=true` to the run command or `--build-arg VITE_DISABLE_ANALYTICS=true` when building.
-
-> **Note:** You must configure either Option 1 (OpenAI API key) OR Option 2 (Custom endpoint and model name) for AI capabilities to work. Do not mix the two options.
-
-Open your browser and navigate to `http://localhost:8080`.
-
-Example configuration for a local vLLM server:
-
-```bash
-VITE_OPENAI_API_ENDPOINT=http://localhost:8000/v1
-VITE_LLM_MODEL_NAME=Qwen/Qwen2.5-32B-Instruct-AWQ
-```
-
-## Try it on our website
-
-1. Go to [ChartDB.io](https://chartdb.io?ref=github_readme_2)
-2. Click "Go to app"
-3. Choose the database that you are using.
-4. Take the magic query and run it in your database.
-5. Copy and paste the resulting JSON set into ChartDB.
-6. Enjoy Viewing & Editing!
-
-## 💚 Community & Support
-
-- [Discord](https://discord.gg/QeFwyWSKwC) (For live discussion with the community and the ChartDB team)
-- [GitHub Issues](https://github.com/chartdb/chartdb/issues) (For any bugs and errors you encounter using ChartDB)
-- [Twitter](https://x.com/intent/follow?screen_name=jonathanfishner) (Get news fast)
-
-## Contributing
-
-We welcome community contributions, big or small, and are here to guide you along
-the way. Message us in the [ChartDB Community Discord](https://discord.gg/QeFwyWSKwC).
-
-For more information on how to contribute, please see our
-[Contributing Guide](/CONTRIBUTING.md).
-
-This project is released with a [Contributor Code of Conduct](/CODE_OF_CONDUCT.md).
-By participating in this project, you agree to follow its terms.
-
-Thank you for helping us make ChartDB better for everyone :heart:.
-
-## License
-
-ChartDB is licensed under the [GNU Affero General Public License v3.0](LICENSE)
+- **API can't reach Postgres** (`ENOTFOUND`/`ECONNREFUSED`): `DATABASE_URL` host must
+  be the Postgres container name, and `POSTGRES_NETWORK` must be its network.
+  `docker logs chartdb-api`.
+- **Logged in but immediately logged out over HTTP**: `COOKIE_SECURE=true` cookies are
+  dropped on plain HTTP; use HTTPS or set `COOKIE_SECURE=false` for testing.
+- **`403 Origin not allowed`**: the URL in the browser must exactly match an entry in
+  `FRONTEND_URL` (scheme, host, port).
+- **`429`**: rate limit hit (10 signups / 20 logins per 15 min per IP). With a proxy,
+  make sure `TRUST_PROXY` is right or everyone shares one IP.
+- **`SESSION_SECRET must be set`**: set a real value in `.env`.
+- **Diagram not syncing**: the cloud icon in the top bar turns red; click it to retry.
+  Large diagrams are limited to 10 MB.

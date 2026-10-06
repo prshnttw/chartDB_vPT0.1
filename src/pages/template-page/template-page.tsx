@@ -126,7 +126,7 @@ const TemplatePageComponent: React.FC = () => {
                     <div className="flex flex-1 justify-start gap-x-3">
                         <div className="flex items-center font-primary">
                             <a
-                                href="https://chartdb.io"
+                                href="/"
                                 className="cursor-pointer"
                                 rel="noreferrer"
                             >
@@ -141,14 +141,6 @@ const TemplatePageComponent: React.FC = () => {
                                 />
                             </a>
                         </div>
-                    </div>
-                    <div className="flex flex-1 justify-end">
-                        <iframe
-                            src={`https://ghbtns.com/github-btn.html?user=chartdb&repo=chartdb&type=star&size=large&text=false`}
-                            width="40"
-                            height="30"
-                            title="GitHub"
-                        ></iframe>
                     </div>
                 </nav>
                 {!template ? (

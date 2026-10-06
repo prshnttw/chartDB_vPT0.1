@@ -4,6 +4,7 @@ import { useDialog } from '@/hooks/use-dialog';
 import { useFullScreenLoader } from '@/hooks/use-full-screen-spinner';
 import { useRedoUndoStack } from '@/hooks/use-redo-undo-stack';
 import { useStorage } from '@/hooks/use-storage';
+import { useDiagramSync } from '@/hooks/use-diagram-sync';
 import type { Diagram } from '@/lib/domain/diagram';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -18,6 +19,7 @@ export const useDiagramLoader = () => {
     const { openCreateDiagramDialog, openOpenDiagramDialog } = useDialog();
     const navigate = useNavigate();
     const { listDiagrams } = useStorage();
+    const { pullAll } = useDiagramSync();
 
     const currentDiagramLoadingRef = useRef<string | undefined>(undefined);
 
@@ -31,6 +33,8 @@ export const useDiagramLoader = () => {
         }
 
         const loadDefaultDiagram = async () => {
+            // Bring this account's server-side diagrams into the local cache first.
+            await pullAll();
             if (diagramId) {
                 setInitialDiagram(undefined);
                 showLoader();
@@ -86,6 +90,7 @@ export const useDiagramLoader = () => {
         showLoader,
         currentDiagram?.id,
         openOpenDiagramDialog,
+        pullAll,
     ]);
 
     return { initialDiagram };

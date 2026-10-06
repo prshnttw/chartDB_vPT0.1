@@ -1,9 +1,7 @@
-import React, { Suspense, useEffect } from 'react';
+import React, { Suspense } from 'react';
 import { useChartDB } from '@/hooks/use-chartdb';
-import { useDialog } from '@/hooks/use-dialog';
 import { Toaster } from '@/components/toast/toaster';
 import { useBreakpoint } from '@/hooks/use-breakpoint';
-import { useLocalConfig } from '@/hooks/use-local-config';
 import { FullScreenLoaderProvider } from '@/context/full-screen-spinner-context/full-screen-spinner-provider';
 import { LayoutProvider } from '@/context/layout-context/layout-provider';
 import { LocalConfigProvider } from '@/context/local-config-context/local-config-provider';
@@ -21,14 +19,12 @@ import { Spinner } from '@/components/spinner/spinner';
 import { Helmet } from 'react-helmet-async';
 import { AlertProvider } from '@/context/alert-context/alert-provider';
 import { CanvasProvider } from '@/context/canvas-context/canvas-provider';
-import { HIDE_CHARTDB_CLOUD } from '@/lib/env';
+import { APP_NAME } from '@/lib/branding';
 import { useDiagramLoader } from './use-diagram-loader';
 import { DiffProvider } from '@/context/diff-context/diff-provider';
 import { TopNavbarMock } from './top-navbar/top-navbar-mock';
+import { DiagramSyncProvider } from '@/context/diagram-sync-context/diagram-sync-provider';
 import { DiagramFilterProvider } from '@/context/diagram-filter-context/diagram-filter-provider';
-
-const OPEN_STAR_US_AFTER_SECONDS = 30;
-const SHOW_STAR_US_AGAIN_AFTER_DAYS = 1;
 
 export const EditorDesktopLayoutLazy = React.lazy(
     () => import('./editor-desktop-layout')
@@ -39,45 +35,15 @@ export const EditorMobileLayoutLazy = React.lazy(
 );
 
 const EditorPageComponent: React.FC = () => {
-    const { diagramName, currentDiagram } = useChartDB();
-    const { openStarUsDialog } = useDialog();
+    const { diagramName } = useChartDB();
     const { isMd: isDesktop } = useBreakpoint('md');
-    const { starUsDialogLastOpen, setStarUsDialogLastOpen, githubRepoOpened } =
-        useLocalConfig();
     const { initialDiagram } = useDiagramLoader();
-
-    useEffect(() => {
-        if (HIDE_CHARTDB_CLOUD) {
-            return;
-        }
-
-        if (!currentDiagram?.id || githubRepoOpened) {
-            return;
-        }
-
-        if (
-            new Date().getTime() - starUsDialogLastOpen >
-            1000 * 60 * 60 * 24 * SHOW_STAR_US_AGAIN_AFTER_DAYS
-        ) {
-            const lastOpen = new Date().getTime();
-            setStarUsDialogLastOpen(lastOpen);
-            setTimeout(openStarUsDialog, OPEN_STAR_US_AFTER_SECONDS * 1000);
-        }
-    }, [
-        currentDiagram?.id,
-        githubRepoOpened,
-        openStarUsDialog,
-        setStarUsDialogLastOpen,
-        starUsDialogLastOpen,
-    ]);
 
     return (
         <>
             <Helmet>
                 <title>
-                    {diagramName
-                        ? `ChartDB - ${diagramName} Diagram | Visualize Database Schemas`
-                        : 'ChartDB - Create & Visualize Database Schema Diagrams'}
+                    {diagramName ? `${APP_NAME} - ${diagramName}` : APP_NAME}
                 </title>
             </Helmet>
             <section
@@ -121,23 +87,25 @@ export const EditorPage: React.FC = () => (
                             <RedoUndoStackProvider>
                                 <DiffProvider>
                                     <ChartDBProvider>
-                                        <DiagramFilterProvider>
-                                            <HistoryProvider>
-                                                <ReactFlowProvider>
-                                                    <CanvasProvider>
-                                                        <ExportImageProvider>
-                                                            <AlertProvider>
-                                                                <DialogProvider>
-                                                                    <KeyboardShortcutsProvider>
-                                                                        <EditorPageComponent />
-                                                                    </KeyboardShortcutsProvider>
-                                                                </DialogProvider>
-                                                            </AlertProvider>
-                                                        </ExportImageProvider>
-                                                    </CanvasProvider>
-                                                </ReactFlowProvider>
-                                            </HistoryProvider>
-                                        </DiagramFilterProvider>
+                                        <DiagramSyncProvider>
+                                            <DiagramFilterProvider>
+                                                <HistoryProvider>
+                                                    <ReactFlowProvider>
+                                                        <CanvasProvider>
+                                                            <ExportImageProvider>
+                                                                <AlertProvider>
+                                                                    <DialogProvider>
+                                                                        <KeyboardShortcutsProvider>
+                                                                            <EditorPageComponent />
+                                                                        </KeyboardShortcutsProvider>
+                                                                    </DialogProvider>
+                                                                </AlertProvider>
+                                                            </ExportImageProvider>
+                                                        </CanvasProvider>
+                                                    </ReactFlowProvider>
+                                                </HistoryProvider>
+                                            </DiagramFilterProvider>
+                                        </DiagramSyncProvider>
                                     </ChartDBProvider>
                                 </DiffProvider>
                             </RedoUndoStackProvider>

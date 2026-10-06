@@ -58,7 +58,7 @@ const ExamplesPageComponent: React.FC = () => {
                     <div className="flex flex-1 justify-start gap-x-3">
                         <div className="flex items-center font-primary">
                             <a
-                                href="https://chartdb.io"
+                                href="/"
                                 className="cursor-pointer"
                                 rel="noreferrer"
                             >

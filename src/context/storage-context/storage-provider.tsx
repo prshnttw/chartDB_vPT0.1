@@ -12,12 +12,21 @@ import type { Area } from '@/lib/domain/area';
 import type { DBCustomType } from '@/lib/domain/db-custom-type';
 import type { DiagramFilter } from '@/lib/domain/diagram-filter/diagram-filter';
 import type { Note } from '@/lib/domain/note';
+import { useAuth } from '@/hooks/use-auth';
+import { diagramsApi } from '@/lib/api/diagrams-api';
 
 export const StorageProvider: React.FC<React.PropsWithChildren> = ({
     children,
 }) => {
+    const { user } = useAuth();
+    const userId = user?.id;
+
+    // One IndexedDB per account, so users sharing a browser never see each
+    // other's cached diagrams. Without a user, the legacy DB name is kept.
     const db = useMemo(() => {
-        const dexieDB = new Dexie('ChartDB') as Dexie & {
+        const dexieDB = new Dexie(
+            userId ? `ChartDB-${userId}` : 'ChartDB'
+        ) as Dexie & {
             diagrams: EntityTable<
                 Diagram,
                 'id' // primary key "id" (for the typings only)
@@ -251,7 +260,7 @@ export const StorageProvider: React.FC<React.PropsWithChildren> = ({
             }
         });
         return dexieDB;
-    }, []);
+    }, [userId]);
 
     const getConfig: StorageContext['getConfig'] =
         useCallback(async (): Promise<ChartDBConfig | undefined> => {
@@ -861,7 +870,11 @@ export const StorageProvider: React.FC<React.PropsWithChildren> = ({
     );
 
     const deleteDiagram: StorageContext['deleteDiagram'] = useCallback(
-        async (id) => {
+        async (id, options) => {
+            // Best effort; if offline the server copy is removed on a later delete.
+            if (userId && !options?.localOnly) {
+                diagramsApi.remove(id).catch(() => undefined);
+            }
             await Promise.all([
                 db.diagrams.delete(id),
                 db.db_tables.where('diagramId').equals(id).delete(),
@@ -872,7 +885,7 @@ export const StorageProvider: React.FC<React.PropsWithChildren> = ({
                 db.notes.where('diagramId').equals(id).delete(),
             ]);
         },
-        [db]
+        [db, userId]
     );
 
     return (

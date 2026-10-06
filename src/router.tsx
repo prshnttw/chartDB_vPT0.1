@@ -4,8 +4,10 @@ import { createBrowserRouter } from 'react-router-dom';
 import type { TemplatePageLoaderData } from './pages/template-page/template-page';
 import type { TemplatesPageLoaderData } from './pages/templates-page/templates-page';
 import { getTemplatesAndAllTags } from './templates-data/template-utils';
+import { RequireAuth } from './pages/auth-page/require-auth';
+import { AuthPage } from './pages/auth-page/auth-page';
 
-const routes: RouteObject[] = [
+const protectedRoutes: RouteObject[] = [
     ...['', 'diagrams/:diagramId'].map((path) => ({
         path,
         async lazy() {
@@ -139,6 +141,13 @@ const routes: RouteObject[] = [
             };
         },
     },
+];
+
+const routes: RouteObject[] = [
+    { path: 'login', element: <AuthPage mode="login" /> },
+    { path: 'signup', element: <AuthPage mode="signup" /> },
+    // Everything else, including the editor, requires a session.
+    { element: <RequireAuth />, children: protectedRoutes },
 ];
 
 export const router = createBrowserRouter(routes);

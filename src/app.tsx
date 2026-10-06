@@ -4,14 +4,17 @@ import { router } from './router';
 import { TooltipProvider } from './components/tooltip/tooltip';
 import { HelmetData } from './helmet/helmet-data';
 import { HelmetProvider } from 'react-helmet-async';
+import { AuthProvider } from './context/auth-context/auth-provider';
 
 export const App = () => {
     return (
         <HelmetProvider>
             <HelmetData />
-            <TooltipProvider>
-                <RouterProvider router={router} />
-            </TooltipProvider>
+            <AuthProvider>
+                <TooltipProvider>
+                    <RouterProvider router={router} />
+                </TooltipProvider>
+            </AuthProvider>
         </HelmetProvider>
     );
 };

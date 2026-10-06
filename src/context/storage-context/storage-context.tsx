@@ -48,7 +48,11 @@ export interface StorageContext {
         id: string;
         attributes: Partial<Diagram>;
     }) => Promise<void>;
-    deleteDiagram: (id: string) => Promise<void>;
+    /** localOnly: skip removing the server copy (used when re-syncing). */
+    deleteDiagram: (
+        id: string,
+        options?: { localOnly?: boolean }
+    ) => Promise<void>;
 
     // Table operations
     addTable: (params: { diagramId: string; table: DBTable }) => Promise<void>;

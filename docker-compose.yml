@@ -1,0 +1,45 @@
+# ChartDB vPT0.1: web UI (nginx) + API (Express) on top of an EXISTING PostgreSQL
+# container. No Postgres service is created here.
+services:
+  chartdb:
+    build:
+      context: .
+      args:
+        VITE_HIDE_CHARTDB_CLOUD: "true"
+        VITE_DISABLE_ANALYTICS: ${DISABLE_ANALYTICS:-true}
+    image: chartdb-vpt:0.1
+    container_name: chartdb
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    environment:
+      DISABLE_ANALYTICS: ${DISABLE_ANALYTICS:-true}
+      HIDE_CHARTDB_CLOUD: "true"
+      API_UPSTREAM: http://chartdb-api:3001
+    depends_on:
+      - chartdb-api
+    restart: unless-stopped
+
+  chartdb-api:
+    build: ./server
+    image: chartdb-api-vpt:0.1
+    container_name: chartdb-api
+    environment:
+      NODE_ENV: production
+      PORT: "3001"
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL in .env}
+      SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET in .env}
+      FRONTEND_URL: ${FRONTEND_URL:?set FRONTEND_URL in .env}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      ALLOWED_EMAIL_DOMAINS: ${ALLOWED_EMAIL_DOMAINS:-cbr-iisc.ac.in}
+      ALLOW_SIGNUP: ${ALLOW_SIGNUP:-true}
+      TRUST_PROXY: ${TRUST_PROXY:-2} # Caddy -> nginx -> api = 2 hops. Use 1 if browsers hit nginx directly.
+    networks:
+      - default
+      - postgres_net
+    restart: unless-stopped
+
+networks:
+  # The network your existing Postgres container is already on.
+  postgres_net:
+    external: true
+    name: ${POSTGRES_NETWORK:?set POSTGRES_NETWORK in .env}
