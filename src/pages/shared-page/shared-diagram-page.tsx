@@ -46,8 +46,8 @@ const SharedDiagramView: React.FC = () => {
         return (
             <main className="flex h-screen flex-col items-center justify-center gap-3">
                 <p role="alert">{error}</p>
-                <Link to="/shared" className="text-sm underline">
-                    Back to shared diagrams
+                <Link to="/" className="text-sm underline">
+                    Go to my diagrams
                 </Link>
             </main>
         );
@@ -82,7 +82,17 @@ const SharedDiagramView: React.FC = () => {
                 <span className="hidden truncate text-sm text-muted-foreground sm:inline">
                     shared by {shared.owner.name ?? shared.owner.email}
                 </span>
-                <span className="ml-auto inline-flex items-center gap-1 rounded border px-2 py-0.5 text-xs text-muted-foreground">
+                {shared.isOwner && (
+                    <Link
+                        to={`/diagrams/${shared.id}`}
+                        className="ml-auto text-sm underline"
+                    >
+                        Open in editor
+                    </Link>
+                )}
+                <span
+                    className={`${shared.isOwner ? '' : 'ml-auto '}inline-flex items-center gap-1 rounded border px-2 py-0.5 text-xs text-muted-foreground`}
+                >
                     <Eye className="size-3" /> View only
                 </span>
             </header>

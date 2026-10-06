@@ -10,6 +10,7 @@ import { ApiError } from '@/lib/api/http';
 vi.mock('@/lib/api/shares-api', () => ({
     sharesApi: {
         listRecipients: vi.fn(),
+        setLinkAccess: vi.fn(),
         share: vi.fn(),
         unshare: vi.fn(),
         listSharedWithMe: vi.fn(),
@@ -62,7 +63,10 @@ describe('ShareDialog', () => {
     };
 
     it('saves the diagram first, then lists current recipients', async () => {
-        api.listRecipients.mockResolvedValue([bob]);
+        api.listRecipients.mockResolvedValue({
+            shares: [bob],
+            linkEnabled: false,
+        });
         await open();
         expect(
             await screen.findByText('bob@cbr-iisc.ac.in', { exact: false })
@@ -72,20 +76,26 @@ describe('ShareDialog', () => {
     });
 
     it('shares by email and shows the new recipient', async () => {
-        api.listRecipients.mockResolvedValue([]);
+        api.listRecipients.mockResolvedValue({
+            shares: [],
+            linkEnabled: false,
+        });
         api.share.mockResolvedValue(bob);
         await open();
         await userEvent.type(
-            await screen.findByLabelText('Email'),
+            await screen.findByLabelText('Add by email'),
             'bob@cbr-iisc.ac.in'
         );
-        await userEvent.click(screen.getByRole('button', { name: 'Share' }));
+        await userEvent.click(screen.getByRole('button', { name: /^Share$/ }));
         expect(await screen.findByText('Bob')).toBeInTheDocument();
         expect(api.share).toHaveBeenCalledWith('d1', 'bob@cbr-iisc.ac.in');
     });
 
     it('shows the server error for an unknown email', async () => {
-        api.listRecipients.mockResolvedValue([]);
+        api.listRecipients.mockResolvedValue({
+            shares: [],
+            linkEnabled: false,
+        });
         api.share.mockRejectedValue(
             new ApiError(
                 404,
@@ -95,17 +105,20 @@ describe('ShareDialog', () => {
         );
         await open();
         await userEvent.type(
-            await screen.findByLabelText('Email'),
+            await screen.findByLabelText('Add by email'),
             'x@cbr-iisc.ac.in'
         );
-        await userEvent.click(screen.getByRole('button', { name: 'Share' }));
+        await userEvent.click(screen.getByRole('button', { name: /^Share$/ }));
         expect(await screen.findByRole('alert')).toHaveTextContent(
             'No account exists with that email.'
         );
     });
 
     it('removes a recipient', async () => {
-        api.listRecipients.mockResolvedValue([bob]);
+        api.listRecipients.mockResolvedValue({
+            shares: [bob],
+            linkEnabled: false,
+        });
         api.unshare.mockResolvedValue(undefined);
         await open();
         await userEvent.click(
@@ -117,6 +130,54 @@ describe('ShareDialog', () => {
         expect(
             await screen.findByText('Not shared with anyone yet.')
         ).toBeInTheDocument();
+    });
+});
+
+describe('ShareDialog link', () => {
+    const renderDialog = () =>
+        render(
+            <TooltipProvider>
+                <ShareDialog />
+            </TooltipProvider>
+        );
+
+    it('shows the link immediately and enables link access when copying', async () => {
+        api.listRecipients.mockResolvedValue({
+            shares: [],
+            linkEnabled: false,
+        });
+        api.setLinkAccess.mockResolvedValue(true);
+        const writeText = vi.fn().mockResolvedValue(undefined);
+        Object.defineProperty(navigator, 'clipboard', {
+            value: { writeText },
+            configurable: true,
+        });
+        renderDialog();
+        await userEvent.click(
+            screen.getByRole('button', { name: 'Share diagram' })
+        );
+        const input = (await screen.findByLabelText(
+            'Link'
+        )) as HTMLInputElement;
+        expect(input.value).toBe(`${window.location.origin}/shared/d1`);
+
+        await userEvent.click(screen.getByRole('button', { name: 'Copy' }));
+        expect(api.setLinkAccess).toHaveBeenCalledWith('d1', true);
+        expect(writeText).toHaveBeenCalledWith(input.value);
+        expect(
+            await screen.findByRole('button', { name: 'Copied' })
+        ).toBeInTheDocument();
+    });
+
+    it('lets the owner turn link access off', async () => {
+        api.listRecipients.mockResolvedValue({ shares: [], linkEnabled: true });
+        api.setLinkAccess.mockResolvedValue(false);
+        renderDialog();
+        await userEvent.click(
+            screen.getByRole('button', { name: 'Share diagram' })
+        );
+        await userEvent.click(await screen.findByRole('checkbox'));
+        expect(api.setLinkAccess).toHaveBeenCalledWith('d1', false);
     });
 });
 

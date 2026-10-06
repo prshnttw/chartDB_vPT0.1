@@ -12,6 +12,7 @@ export interface SharedDiagramSummary {
     name: string;
     updatedAt: string;
     owner: { name: string | null; email: string };
+    isOwner?: boolean;
 }
 
 export interface SharedDiagram extends SharedDiagramSummary {
@@ -21,9 +22,14 @@ export interface SharedDiagram extends SharedDiagramSummary {
 export const sharesApi = {
     // Owner side
     listRecipients: (diagramId: string) =>
-        apiFetch<{ shares: ShareRecipient[] }>(
+        apiFetch<{ shares: ShareRecipient[]; linkEnabled: boolean }>(
             `/diagrams/${diagramId}/shares`
-        ).then((r) => r.shares),
+        ),
+    setLinkAccess: (diagramId: string, enabled: boolean) =>
+        apiFetch<{ linkEnabled: boolean }>(
+            `/diagrams/${diagramId}/shares/link`,
+            { method: 'PUT', body: { enabled } }
+        ).then((r) => r.linkEnabled),
     share: (diagramId: string, email: string) =>
         apiFetch<{ share: ShareRecipient }>(`/diagrams/${diagramId}/shares`, {
             method: 'POST',

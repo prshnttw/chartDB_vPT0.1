@@ -27,6 +27,7 @@ interface SharedRow {
     updated_at: Date;
     owner_name: string | null;
     owner_email: string;
+    is_owner?: boolean;
 }
 
 const toShared = (r: SharedRow) => ({
@@ -35,6 +36,7 @@ const toShared = (r: SharedRow) => ({
     ...(r.diagram_data !== undefined ? { data: r.diagram_data } : {}),
     updatedAt: r.updated_at,
     owner: { name: r.owner_name, email: r.owner_email },
+    ...(r.is_owner !== undefined ? { isOwner: r.is_owner } : {}),
 });
 
 /** Owner-side management: /api/diagrams/:id/shares (mounted by diagramsRouter). */
@@ -64,7 +66,34 @@ export const ownerSharesRouter = (db: Db): Router => {
                   WHERE s.diagram_id = $1 ORDER BY s.created_at`,
                 [id]
             );
-            res.json({ shares: rows });
+            const link = await db.query<{ link_shared: boolean }>(
+                'SELECT link_shared FROM diagrams WHERE id = $1',
+                [id]
+            );
+            res.json({
+                shares: rows,
+                linkEnabled: link.rows[0]?.link_shared === true,
+            });
+        })
+    );
+
+    // Turn "anyone with the link (signed in) can view" on or off.
+    router.put(
+        '/link',
+        wrap(async (req, res) => {
+            const id = paramId(req.params.id);
+            const { enabled } = parse(
+                z.object({ enabled: z.boolean() }),
+                req.body
+            );
+            const { rowCount } = await db.query(
+                'UPDATE diagrams SET link_shared = $3 WHERE id = $1 AND user_id = $2',
+                [id, req.user!.id, enabled]
+            );
+            if (!rowCount) {
+                throw new ApiError(404, 'NOT_FOUND', 'Diagram not found.');
+            }
+            res.json({ linkEnabled: enabled });
         })
     );
 
@@ -149,11 +178,15 @@ export const sharedWithMeRouter = (db: Db, config: Config): Router => {
         wrap(async (req, res) => {
             const { rows } = await db.query<SharedRow>(
                 `SELECT d.id, d.name, d.diagram_data, d.updated_at,
-                        o.name AS owner_name, o.email AS owner_email
-                   FROM diagram_shares s
-                   JOIN diagrams d ON d.id = s.diagram_id
+                        o.name AS owner_name, o.email AS owner_email,
+                        (d.user_id = $2) AS is_owner
+                   FROM diagrams d
                    JOIN users o ON o.id = d.user_id
-                  WHERE s.diagram_id = $1 AND s.user_id = $2`,
+                   LEFT JOIN diagram_shares s
+                          ON s.diagram_id = d.id AND s.user_id = $2
+                  WHERE d.id = $1
+                    AND (d.link_shared = TRUE OR d.user_id = $2
+                         OR s.user_id IS NOT NULL)`,
                 [paramId(req.params.id), req.user!.id]
             );
             if (!rows[0]) {

@@ -92,6 +92,50 @@ describe('route protection', () => {
     });
 });
 
+describe('opening a link while logged out', () => {
+    it('asks to sign up/in, then returns to the linked page', async () => {
+        api.me.mockRejectedValue(new ApiError(401, 'UNAUTHORIZED', 'x'));
+        api.signup.mockResolvedValue(user);
+        render(
+            <HelmetProvider>
+                <AuthProvider>
+                    <MemoryRouter initialEntries={['/shared/abc']}>
+                        <Routes>
+                            <Route
+                                path="/login"
+                                element={<AuthPage mode="login" />}
+                            />
+                            <Route
+                                path="/signup"
+                                element={<AuthPage mode="signup" />}
+                            />
+                            <Route element={<RequireAuth />}>
+                                <Route
+                                    path="/shared/:id"
+                                    element={<div>SHARED VIEW</div>}
+                                />
+                            </Route>
+                        </Routes>
+                    </MemoryRouter>
+                </AuthProvider>
+            </HelmetProvider>
+        );
+        // No account yet: switch to signup; the target link must survive.
+        await userEvent.click(
+            await screen.findByRole('link', { name: 'Sign up' })
+        );
+        await fillAndSubmit(
+            {
+                Name: 'Pat',
+                Email: 'pat@cbr-iisc.ac.in',
+                Password: 'secret-pass-1',
+            },
+            'Create account'
+        );
+        expect(await screen.findByText('SHARED VIEW')).toBeInTheDocument();
+    });
+});
+
 describe('login page', () => {
     beforeEach(() => {
         unauthenticated();

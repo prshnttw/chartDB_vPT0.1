@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Loader2, Share2, X } from 'lucide-react';
+import { Check, Link2, Loader2, Share2, X } from 'lucide-react';
 import { Button } from '@/components/button/button';
 import {
     Dialog,
@@ -9,6 +9,7 @@ import {
     DialogTitle,
     DialogTrigger,
 } from '@/components/dialog/dialog';
+import { Checkbox } from '@/components/checkbox/checkbox';
 import { Input } from '@/components/input/input';
 import { Label } from '@/components/label/label';
 import {
@@ -38,6 +39,8 @@ export const ShareDialog: React.FC = () => {
     const [email, setEmail] = useState('');
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [copied, setCopied] = useState(false);
+    const [linkEnabled, setLinkEnabled] = useState(false);
 
     const load = useCallback(async () => {
         if (!diagramId) return;
@@ -46,7 +49,9 @@ export const ShareDialog: React.FC = () => {
         try {
             // The server needs a copy of the diagram before it can be shared.
             await saveNow();
-            setRecipients(await sharesApi.listRecipients(diagramId));
+            const res = await sharesApi.listRecipients(diagramId);
+            setRecipients(res.shares);
+            setLinkEnabled(res.linkEnabled);
         } catch (e) {
             setError(message(e));
         } finally {
@@ -88,6 +93,32 @@ export const ShareDialog: React.FC = () => {
         }
     };
 
+    const link = `${window.location.origin}/shared/${diagramId}`;
+
+    const toggleLink = async (enabled: boolean) => {
+        if (!diagramId) return;
+        setError(null);
+        try {
+            setLinkEnabled(await sharesApi.setLinkAccess(diagramId, enabled));
+        } catch (err) {
+            setError(message(err));
+        }
+    };
+
+    const copyLink = async () => {
+        try {
+            // Copying a link that does not work yet would be confusing.
+            if (!linkEnabled) await toggleLink(true);
+            await navigator.clipboard.writeText(link);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        } catch {
+            setError(
+                'Could not copy automatically. Select the link and copy it.'
+            );
+        }
+    };
+
     if (!diagramId) return null;
 
     return (
@@ -95,13 +126,15 @@ export const ShareDialog: React.FC = () => {
             <Tooltip>
                 <TooltipTrigger asChild>
                     <DialogTrigger asChild>
-                        <button
+                        <Button
                             type="button"
+                            size="sm"
                             aria-label="Share diagram"
-                            className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            className="h-8 gap-1.5"
                         >
                             <Share2 className="size-4" />
-                        </button>
+                            Share
+                        </Button>
                     </DialogTrigger>
                 </TooltipTrigger>
                 <TooltipContent>Share (view only)</TooltipContent>
@@ -112,14 +145,14 @@ export const ShareDialog: React.FC = () => {
                         Share &ldquo;{currentDiagram.name}&rdquo;
                     </DialogTitle>
                     <DialogDescription>
-                        People you add can open this diagram in view-only mode.
-                        They need an account.
+                        Share a view-only link, or add people by email. Viewers
+                        can never edit.
                     </DialogDescription>
                 </DialogHeader>
 
                 <form onSubmit={onShare} className="flex items-end gap-2">
                     <div className="flex-1 space-y-1.5">
-                        <Label htmlFor="share-email">Email</Label>
+                        <Label htmlFor="share-email">Add by email</Label>
                         <Input
                             id="share-email"
                             type="email"
@@ -143,6 +176,44 @@ export const ShareDialog: React.FC = () => {
                         {error}
                     </p>
                 )}
+
+                <div className="space-y-1.5">
+                    <Label htmlFor="share-link">Link</Label>
+                    <div className="flex gap-2">
+                        <Input
+                            id="share-link"
+                            readOnly
+                            value={link}
+                            onFocus={(e) => e.currentTarget.select()}
+                        />
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => void copyLink()}
+                        >
+                            {copied ? (
+                                <Check className="mr-1 size-4" />
+                            ) : (
+                                <Link2 className="mr-1 size-4" />
+                            )}
+                            {copied ? 'Copied' : 'Copy'}
+                        </Button>
+                    </div>
+                    <div className="flex items-start gap-2 pt-1">
+                        <Checkbox
+                            id="share-link-enabled"
+                            checked={linkEnabled}
+                            onCheckedChange={(v) => void toggleLink(v === true)}
+                        />
+                        <Label
+                            htmlFor="share-link-enabled"
+                            className="text-xs font-normal leading-snug text-muted-foreground"
+                        >
+                            Anyone with this link can view (view only). They are
+                            asked to sign in or sign up first.
+                        </Label>
+                    </div>
+                </div>
 
                 <div>
                     <h3 className="mb-2 text-sm font-medium">Shared with</h3>

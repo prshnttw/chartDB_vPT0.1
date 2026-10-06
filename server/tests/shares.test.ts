@@ -165,3 +165,80 @@ describe('sharing a diagram (view only)', () => {
         expect((await viewer.get(`/api/shared/${id}`)).status).toBe(404);
     });
 });
+
+describe('"anyone with the link" access', () => {
+    it('is off by default: signed-in strangers get 404', async () => {
+        const { outsider, id, owner } = await scenario();
+        expect((await outsider.get(`/api/shared/${id}`)).status).toBe(404);
+        expect(
+            (await owner.get(`/api/diagrams/${id}/shares`)).body.linkEnabled
+        ).toBe(false);
+    });
+
+    it('when enabled, any signed-in user can view but not edit', async () => {
+        const { outsider, owner, id } = await scenario();
+        const on = await owner
+            .put(`/api/diagrams/${id}/shares/link`)
+            .send({ enabled: true });
+        expect(on.status).toBe(200);
+        expect(on.body.linkEnabled).toBe(true);
+
+        const read = await outsider.get(`/api/shared/${id}`);
+        expect(read.status).toBe(200);
+        expect(read.body.diagram.data.tables[0].name).toBe('users');
+        expect(read.body.diagram.isOwner).toBe(false);
+
+        expect(
+            (
+                await outsider
+                    .put(`/api/diagrams/${id}`)
+                    .send(diagramPayload('X'))
+            ).status
+        ).toBe(404);
+        expect((await outsider.delete(`/api/diagrams/${id}`)).status).toBe(404);
+    });
+
+    it('requires login even when enabled', async () => {
+        const { app, owner, id } = await scenario();
+        await owner
+            .put(`/api/diagrams/${id}/shares/link`)
+            .send({ enabled: true });
+        expect((await request(app).get(`/api/shared/${id}`)).status).toBe(401);
+    });
+
+    it('turning it off revokes access immediately', async () => {
+        const { outsider, owner, id } = await scenario();
+        const url = `/api/diagrams/${id}/shares/link`;
+        await owner.put(url).send({ enabled: true });
+        expect((await outsider.get(`/api/shared/${id}`)).status).toBe(200);
+        await owner.put(url).send({ enabled: false });
+        expect((await outsider.get(`/api/shared/${id}`)).status).toBe(404);
+    });
+
+    it('explicit email shares keep working when the link is off', async () => {
+        const { viewer, owner, id } = await scenario();
+        await owner
+            .post(`/api/diagrams/${id}/shares`)
+            .send({ email: validUser(2).email });
+        expect((await viewer.get(`/api/shared/${id}`)).status).toBe(200);
+    });
+
+    it('only the owner can toggle it', async () => {
+        const { outsider, owner, id } = await scenario();
+        const url = `/api/diagrams/${id}/shares/link`;
+        expect((await outsider.put(url).send({ enabled: true })).status).toBe(
+            404
+        );
+        expect((await owner.put(url).send({ enabled: 'yes' })).status).toBe(
+            422
+        );
+        expect((await outsider.get(`/api/shared/${id}`)).status).toBe(404);
+    });
+
+    it('the owner opening their own link is flagged as owner', async () => {
+        const { owner, id } = await scenario();
+        const res = await owner.get(`/api/shared/${id}`);
+        expect(res.status).toBe(200);
+        expect(res.body.diagram.isOwner).toBe(true);
+    });
+});
