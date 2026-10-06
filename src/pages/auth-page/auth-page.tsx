@@ -12,7 +12,11 @@ import { ThemeProvider } from '@/context/theme-context/theme-provider';
 import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/hooks/use-theme';
 import { ApiError } from '@/lib/api/http';
-import { APP_NAME, APP_VERSION_LABEL } from '@/lib/branding';
+import {
+    APP_NAME,
+    APP_VERSION_LABEL,
+    SIGNUP_EMAIL_DOMAIN,
+} from '@/lib/branding';
 
 export interface AuthPageProps {
     mode: 'login' | 'signup';
@@ -70,11 +74,29 @@ const AuthForm: React.FC<AuthPageProps> = ({ mode }) => {
     };
 
     return (
-        <main className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
+        <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-10">
+            {/* Faded dot grid + soft glow behind the card */}
+            <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0"
+                style={{
+                    backgroundImage:
+                        'radial-gradient(hsl(var(--foreground) / 0.16) 1px, transparent 1.2px)',
+                    backgroundSize: '22px 22px',
+                    maskImage:
+                        'radial-gradient(ellipse 65% 60% at 50% 45%, #000 20%, transparent 100%)',
+                    WebkitMaskImage:
+                        'radial-gradient(ellipse 65% 60% at 50% 45%, #000 20%, transparent 100%)',
+                }}
+            />
+            <div
+                aria-hidden="true"
+                className="pointer-events-none absolute left-1/2 top-1/3 size-[480px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/5 blur-3xl"
+            />
             <Helmet>
                 <title>{`${isLogin ? 'Sign in' : 'Create account'} - ${APP_NAME}`}</title>
             </Helmet>
-            <div className="w-full max-w-sm">
+            <div className="relative w-full max-w-sm">
                 <div className="mb-8 flex items-center justify-center gap-2">
                     <img
                         src={
@@ -90,10 +112,23 @@ const AuthForm: React.FC<AuthPageProps> = ({ mode }) => {
                     </span>
                 </div>
 
-                <div className="rounded-lg border bg-card p-6 shadow-sm">
-                    <h1 className="mb-6 text-center text-xl font-semibold tracking-tight">
+                <div className="rounded-xl border bg-card/90 p-6 shadow-lg backdrop-blur-sm">
+                    <h1 className="mb-1 text-center text-xl font-semibold tracking-tight">
                         {isLogin ? 'Welcome back' : 'Create account'}
                     </h1>
+                    {!isLogin && (
+                        <p
+                            role="note"
+                            className="mb-5 mt-3 rounded-md border bg-muted/50 px-3 py-2 text-center text-xs text-muted-foreground"
+                        >
+                            Sign up is only available for{' '}
+                            <strong className="font-medium text-foreground">
+                                @{SIGNUP_EMAIL_DOMAIN}
+                            </strong>{' '}
+                            email addresses.
+                        </p>
+                    )}
+                    {isLogin && <div className="mb-5" />}
 
                     <form onSubmit={onSubmit} className="space-y-4" noValidate>
                         {!isLogin && (
@@ -119,6 +154,11 @@ const AuthForm: React.FC<AuthPageProps> = ({ mode }) => {
                                 autoComplete="email"
                                 required
                                 autoFocus
+                                placeholder={
+                                    isLogin
+                                        ? undefined
+                                        : `you@${SIGNUP_EMAIL_DOMAIN}`
+                                }
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                             />
