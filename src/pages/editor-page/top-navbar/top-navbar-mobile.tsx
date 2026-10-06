@@ -5,6 +5,7 @@ import { LanguageNav } from './language-nav/language-nav';
 import { Menu } from './menu/menu';
 import { UserMenu } from './user-menu';
 import { SyncStatusBadge } from './sync-status';
+import { ShareDialog } from './share-dialog';
 import { Button } from '@/components/button/button';
 import { useSidebar } from '@/components/sidebar/use-sidebar';
 import { MenuIcon } from 'lucide-react';
@@ -37,6 +38,7 @@ export const TopNavbarMobile: React.FC<TopNavbarMobileProps> = () => {
 
                     <div className="flex items-center gap-2">
                         <SyncStatusBadge />
+                        <ShareDialog />
                         <LanguageNav />
                         <UserMenu />
                     </div>

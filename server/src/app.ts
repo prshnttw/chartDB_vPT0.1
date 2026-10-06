@@ -7,6 +7,7 @@ import { csrfGuard } from './auth/middleware.js';
 import type { Config } from './config.js';
 import type { Db } from './db.js';
 import { diagramsRouter } from './diagrams/routes.js';
+import { sharedWithMeRouter } from './diagrams/shares.js';
 import { errorHandler, notFoundHandler } from './errors.js';
 
 export const createApp = (db: Db, config: Config): Express => {
@@ -33,6 +34,7 @@ export const createApp = (db: Db, config: Config): Express => {
     app.use('/api', csrfGuard(config));
     app.use('/api/auth', authRouter(db, config));
     app.use('/api/diagrams', diagramsRouter(db, config));
+    app.use('/api/shared', sharedWithMeRouter(db, config));
 
     app.use(notFoundHandler);
     app.use(errorHandler);

@@ -8,6 +8,7 @@ import { LanguageNav } from './language-nav/language-nav';
 import { Menu } from './menu/menu';
 import { UserMenu } from './user-menu';
 import { SyncStatusBadge } from './sync-status';
+import { ShareDialog } from './share-dialog';
 import { APP_VERSION_LABEL } from '@/lib/branding';
 
 export interface TopNavbarProps {}
@@ -40,6 +41,7 @@ export const TopNavbar: React.FC<TopNavbarProps> = () => {
             <div className="hidden flex-1 items-center justify-end gap-2 sm:flex">
                 <LastSaved />
                 <SyncStatusBadge />
+                <ShareDialog />
                 <LanguageNav />
                 <UserMenu />
             </div>

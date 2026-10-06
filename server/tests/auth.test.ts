@@ -119,12 +119,10 @@ describe('login', () => {
         const wrong = await request(app)
             .post('/api/auth/login')
             .send({ email: validUser().email, password: 'wrong-password-1' });
-        const unknown = await request(app)
-            .post('/api/auth/login')
-            .send({
-                email: 'ghost@cbr-iisc.ac.in',
-                password: 'wrong-password-1',
-            });
+        const unknown = await request(app).post('/api/auth/login').send({
+            email: 'ghost@cbr-iisc.ac.in',
+            password: 'wrong-password-1',
+        });
         expect(wrong.status).toBe(401);
         expect(unknown.status).toBe(401);
         expect(wrong.body).toEqual(unknown.body);

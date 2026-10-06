@@ -4,6 +4,7 @@ import type { Config } from '../config.js';
 import type { Db } from '../db.js';
 import { ApiError, wrap } from '../errors.js';
 import { requireAuth } from '../auth/middleware.js';
+import { ownerSharesRouter } from './shares.js';
 import {
     diagramBodySchema,
     diagramCreateSchema,
@@ -49,6 +50,7 @@ const paramId = (v: unknown) => {
 export const diagramsRouter = (db: Db, config: Config): Router => {
     const router = Router();
     router.use(requireAuth(db, config));
+    router.use('/:id/shares', ownerSharesRouter(db));
 
     router.get(
         '/',

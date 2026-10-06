@@ -10,7 +10,7 @@ if you serve it to others.
 Browser ──► Caddy (HTTPS) ──► chartdb (nginx + React UI) ──/api──► chartdb-api (Express)
                                                                         │
                                                           existing PostgreSQL container
-                                                          database "chartdb": users, sessions, diagrams
+                                                          database "chartdb": users, sessions, diagrams, diagram_shares
 ```
 
 ## What was added
@@ -48,6 +48,14 @@ sharing a browser never see each other's cache. Conflicts are last-write-wins by
 `updatedAt`; the server refuses to overwrite a newer copy with an older one.
 Every diagram query is scoped by the session's `user_id`; a diagram that is not
 yours returns `404`.
+
+**Sharing (view only).** Click the share icon in the top bar, enter the email of
+another registered user and they can open the diagram read-only. Recipients find
+it under *account menu → Shared with me* (`/shared`); they see the live version
+the owner last saved, can't edit, save or delete it, and can remove it from their
+list. The owner can revoke access at any time. Sharing is by account only: there
+are no public links. Server-side, `diagram_shares` grants read access and every
+write endpoint stays scoped to the owner.
 
 **Known limitations (v0.1).** Diagrams already stored in a browser under the old
 unauthenticated ChartDB are not auto-imported (export them via *File → Export*
@@ -164,6 +172,10 @@ npm run test:ci        # frontend tests
 | GET | `/api/auth/me` | `401` if not logged in |
 | GET/POST | `/api/diagrams` | list / create |
 | GET/PUT/DELETE | `/api/diagrams/:id` | own diagrams only |
+| GET/POST | `/api/diagrams/:id/shares` | owner: list / share by `{email}` |
+| DELETE | `/api/diagrams/:id/shares/:userId` | owner: revoke |
+| GET | `/api/shared`, `/api/shared/:id` | diagrams shared with me (read-only) |
+| DELETE | `/api/shared/:id` | remove from my shared list |
 
 Errors are `{ "error": { "code", "message" } }` with 400/401/403/404/409/422/429/500.
 Passwords: 10–128 chars with a letter and a number.

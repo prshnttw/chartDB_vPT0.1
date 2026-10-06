@@ -5,9 +5,13 @@ import type { TemplatePageLoaderData } from './pages/template-page/template-page
 import type { TemplatesPageLoaderData } from './pages/templates-page/templates-page';
 import { getTemplatesAndAllTags } from './templates-data/template-utils';
 import { RequireAuth } from './pages/auth-page/require-auth';
+import { SharedListPage } from './pages/shared-page/shared-list-page';
+import { SharedDiagramPage } from './pages/shared-page/shared-diagram-page';
 import { AuthPage } from './pages/auth-page/auth-page';
 
 const protectedRoutes: RouteObject[] = [
+    { path: 'shared', element: <SharedListPage /> },
+    { path: 'shared/:diagramId', element: <SharedDiagramPage /> },
     ...['', 'diagrams/:diagramId'].map((path) => ({
         path,
         async lazy() {

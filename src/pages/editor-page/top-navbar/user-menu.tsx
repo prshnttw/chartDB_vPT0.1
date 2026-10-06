@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogOut } from 'lucide-react';
+import { LogOut, Users } from 'lucide-react';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -42,6 +42,10 @@ export const UserMenu: React.FC = () => {
                     </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => navigate('/shared')}>
+                    <Users className="mr-2 size-4" />
+                    Shared with me
+                </DropdownMenuItem>
                 <DropdownMenuItem onSelect={onLogout}>
                     <LogOut className="mr-2 size-4" />
                     Log out
